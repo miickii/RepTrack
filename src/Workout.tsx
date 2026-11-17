@@ -79,6 +79,15 @@ export function Workout({
       fn(w);
       w.updatedAt = now();
     });
+  function updateWeight(eid: string, weight: number | null) {
+    return edit((w) => {
+      const exercise = w.exercises.find((e) => e.id === eid)!;
+      exercise.sets.forEach((set) => {
+        set.weight = weight;
+      });
+      exercise.target.weight = weight;
+    });
+  }
   function updateSet(eid: string, sid: string, fn: (s: SetLog) => void) {
     return edit((w) =>
       fn(
@@ -259,7 +268,7 @@ export function Workout({
                   {nextSet && (e.increment || e.weights.length > 0) ? (
                     <div className="quick-weight">
                       <span>
-                        Next set · {displayWeight(nextSet.weight, unit)} {unit}
+                        All sets · {displayWeight(nextSet.weight, unit)} {unit}
                       </span>
                       {[-1, 1].map((direction) => {
                         const weights = [...e.weights].sort((a, b) => a - b);
@@ -277,15 +286,11 @@ export function Workout({
                             key={direction}
                             aria-label={
                               direction > 0
-                                ? "Increase next set weight"
-                                : "Decrease next set weight"
+                                ? "Increase exercise weight"
+                                : "Decrease exercise weight"
                             }
                             disabled={busy || value === undefined || value < 0}
-                            onClick={() =>
-                              updateSet(se.id, nextSet.id, (s) => {
-                                s.weight = value!;
-                              })
-                            }
+                            onClick={() => updateWeight(se.id, value!)}
                           >
                             {direction > 0 ? "+" : "−"}
                           </button>
@@ -315,11 +320,11 @@ export function Workout({
                             <label className="weight-input">
                               <input
                                 aria-label={`Weight for set ${i + 1}`}
-                                type="number"
+                                type="text"
                                 inputMode="decimal"
-                                step="any"
-                                min="0"
-                                max="100000"
+                                onInput={(ev) =>
+                                  ev.currentTarget.setCustomValidity("")
+                                }
                                 key={`${set.id}-${set.weight}-${unit}`}
                                 defaultValue={
                                   set.weight === null
@@ -329,7 +334,20 @@ export function Workout({
                                 placeholder="—"
                                 disabled={busy}
                                 onBlur={(ev) => {
-                                  const value = ev.currentTarget.value;
+                                  const value = ev.currentTarget.value
+                                    .trim()
+                                    .replace(",", ".");
+                                  if (
+                                    value !== "" &&
+                                    (!/^\d+(?:\.\d*)?$/.test(value) ||
+                                      Number(value) > 100000)
+                                  ) {
+                                    ev.currentTarget.setCustomValidity(
+                                      "Enter a weight between 0 and 100000, for example 7.5 or 7,5.",
+                                    );
+                                    ev.currentTarget.reportValidity();
+                                    return;
+                                  }
                                   const weight =
                                     value === ""
                                       ? null
@@ -341,9 +359,7 @@ export function Workout({
                                         : displayWeight(set.weight, unit)) &&
                                     weight !== set.weight
                                   )
-                                    void updateSet(se.id, set.id, (s) => {
-                                      s.weight = weight;
-                                    });
+                                    void updateWeight(se.id, weight);
                                 }}
                               />
                               <span>{unit}</span>

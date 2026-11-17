@@ -180,7 +180,7 @@ test("configured progression requires confirmation and leaves session targets in
     page.getByText("Your updated weight is saved for next time."),
   ).toBeVisible();
   await expect(
-    page.getByRole("spinbutton", { name: "Weight for set 1" }),
+    page.getByRole("textbox", { name: "Weight for set 1" }),
   ).toHaveValue("5");
   await page
     .getByRole("button", { name: "Details for Incline Dumbbell Press (bar)" })
@@ -230,4 +230,30 @@ test("Pages installation metadata and assets stay inside the deployment path", a
     async () => (await navigator.serviceWorker.ready).scope,
   );
   expect(new URL(scope).pathname).toBe(base.pathname);
+});
+
+test("decimal weights apply to every set and survive reload", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: /A UP NEXT/ }).click();
+  const weight = page.getByRole("textbox", {
+    name: "Weight for set 1",
+    exact: true,
+  });
+  await weight.fill("7.5");
+  await weight.press("Tab");
+  await expect(
+    page.getByRole("textbox", { name: "Weight for set 3" }),
+  ).toHaveValue("7.5");
+  await weight.fill("8,25");
+  await weight.press("Tab");
+  await expect(
+    page.getByRole("textbox", { name: "Weight for set 2" }),
+  ).toHaveValue("8.25");
+  await page.reload();
+  for (let i = 1; i <= 3; i++)
+    await expect(
+      page.getByRole("textbox", { name: `Weight for set ${i}`, exact: true }),
+    ).toHaveValue("8.25");
 });
