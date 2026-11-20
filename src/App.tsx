@@ -81,17 +81,26 @@ export default function App() {
     ? rotation[state.settings.rotationIndex]
     : null;
   async function start(id: string) {
-    if (active) {
+    if (active?.templateId === id) {
       setSessionId(active.id);
       return;
     }
     const template = state!.templates.find((t) => t.id === id);
     if (!template || !template.exerciseIds.length) return;
-    const workout = newSession(template, state!.exercises);
+    if (
+      active?.exercises.some((e) => e.sets.some((set) => set.done)) &&
+      !confirm(
+        `Discard the unfinished ${active.name} workout and start ${template.name}? Your logged sets in that unfinished workout will be removed. You can undo this action.`,
+      )
+    )
+      return;
+    const workout = newSession(template, state!.exercises, state!.sessions);
     if (
       await change((s) => {
-        if (s.sessions.some((x) => !x.finishedAt))
-          throw new Error("A workout is already active.");
+        const current = s.sessions.find((x) => !x.finishedAt);
+        if (JSON.stringify(current) !== JSON.stringify(active))
+          throw new Error("The active workout changed. Please try again.");
+        s.sessions = s.sessions.filter((x) => x.id !== active?.id);
         s.sessions.push(workout);
       })
     )
@@ -251,25 +260,33 @@ export default function App() {
           />
         ) : session ? (
           <Workout
+            key={session.id}
             session={session}
             state={state}
             change={change}
             busy={busy}
-            onBack={() => setSessionId(null)}
+            onBack={() => {
+              setPage(session.finishedAt ? "history" : "home");
+              setSessionId(null);
+            }}
             onDetails={setDetail}
             onFinish={() => finish(session)}
             onDiscard={async () => {
               if (
                 confirm(
-                  "Discard this unfinished workout? You can undo this action.",
+                  session.finishedAt
+                    ? "Delete this workout from your history? You can undo this action."
+                    : "Discard this unfinished workout? You can undo this action.",
                 )
               ) {
                 if (
                   await change((s) => {
                     s.sessions = s.sessions.filter((x) => x.id !== session.id);
                   })
-                )
+                ) {
+                  setPage(session.finishedAt ? "history" : "home");
                   setSessionId(null);
+                }
               }
             }}
             tick={tick}

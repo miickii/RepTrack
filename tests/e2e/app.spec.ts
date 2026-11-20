@@ -257,3 +257,94 @@ test("decimal weights apply to every set and survive reload", async ({
       page.getByRole("textbox", { name: `Weight for set ${i}`, exact: true }),
     ).toHaveValue("8.25");
 });
+
+test("switches routines and protects logged sets before replacing a workout", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.locator(".workout-choice").filter({ hasText: "Pull" }).click();
+  await page.getByRole("button", { name: "All workouts", exact: true }).click();
+  await page.locator(".workout-choice").filter({ hasText: "Push" }).click();
+  await expect(
+    page.getByRole("heading", { name: "A — Push", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Complete set 1", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Reopen set 1", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "All workouts", exact: true }).click();
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.locator(".workout-choice").filter({ hasText: "Pull" }).click();
+  await page.locator(".resume-banner").click();
+  await expect(
+    page.getByRole("button", { name: "Reopen set 1", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "All workouts", exact: true }).click();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.locator(".workout-choice").filter({ hasText: "Pull" }).click();
+  await expect(
+    page.getByRole("heading", { name: "B — Pull", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "B — Pull", exact: true }),
+  ).toBeVisible();
+});
+
+test("history corrections persist and deletion supports cancel and undo", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.locator(".workout-choice").filter({ hasText: "Push" }).click();
+  await page
+    .getByRole("button", { name: "Complete set 1", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Reopen set 1", exact: true }),
+  ).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Finish workout", exact: true })
+    .click();
+  await page.getByRole("button", { name: /A — Push.*completed sets/ }).click();
+  await page
+    .getByRole("button", { name: "Decrease reps", exact: true })
+    .first()
+    .click();
+  await expect(page.locator(".stepper b").first()).toHaveText("11");
+  await page.reload();
+  await page
+    .locator(".mobile-nav")
+    .getByRole("button", { name: "History" })
+    .click();
+  await page.getByRole("button", { name: /A — Push.*completed sets/ }).click();
+  await expect(page.locator(".stepper b").first()).toHaveText("11");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page
+    .getByRole("button", { name: "Delete workout", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "A — Push", exact: true }),
+  ).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Delete workout", exact: true })
+    .click();
+  await expect(page.getByText("Your story starts with one set.")).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await page.getByRole("button", { name: /A — Push.*completed sets/ }).click();
+  await expect(page.locator(".stepper b").first()).toHaveText("11");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Delete workout", exact: true })
+    .click();
+  await expect(page.getByText("Your story starts with one set.")).toBeVisible();
+  await page.reload();
+  await page
+    .locator(".mobile-nav")
+    .getByRole("button", { name: "History" })
+    .click();
+  await expect(page.getByText("Your story starts with one set.")).toBeVisible();
+});

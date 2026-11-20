@@ -21,6 +21,7 @@ import {
   ready,
   nextWeight,
   newSet,
+  previousReps,
   now,
   displayWeight,
   toKg,
@@ -596,7 +597,9 @@ export function Workout({
                         max: e.max,
                         weight: e.weight,
                       },
-                      sets: Array.from({ length: e.sets }, () => newSet(e)),
+                      sets: Array.from({ length: e.sets }, (_, i) =>
+                        newSet(e, previousReps(e.id, state.sessions)[i]),
+                      ),
                       skipped: false,
                     });
                   })
@@ -623,9 +626,19 @@ export function Workout({
         </>
       )}
       {history && (
-        <p className="help">
-          Corrections save immediately. Undo is available after each change.
-        </p>
+        <div className="workout-end">
+          <p className="help">
+            Corrections save immediately. Undo is available after each change.
+          </p>
+          <button
+            className="text-button muted"
+            disabled={busy}
+            onClick={onDiscard}
+          >
+            <Trash2 size={16} />
+            Delete workout
+          </button>
+        </div>
       )}
     </>
   );

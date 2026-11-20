@@ -5,3 +5,6 @@ playwright-report/
 .DS_Store
 
 *.tsbuildinfo
+
+# Independently versioned full-body app
+/reptrack-mom/
